@@ -1,0 +1,43 @@
+name: Ladyhost project checks
+
+on:
+  push:
+    branches: ['agent/**', 'ladyhost/**', "main"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: "ci/ladyhost"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Fetch the exact pushed source
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          READ_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          git config core.hooksPath /dev/null
+          git remote add origin "https://github.com/${SOURCE_REPOSITORY}.git"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$READ_TOKEN" | base64 -w0)"
+          git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
+          unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 READ_TOKEN
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - name: Run selected project checks
+        env:
+          LADYHOST_CHECKS: "[91,91,34,112,121,116,104,111,110,51,34,44,34,45,109,34,44,34,117,110,105,116,116,101,115,116,34,44,34,100,105,115,99,111,118,101,114,34,44,34,45,115,34,44,34,116,101,115,116,115,34,44,34,45,118,34,93,93]"
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          commands = json.loads(bytes(json.loads(os.environ['LADYHOST_CHECKS'])))
+          if not commands:
+              raise SystemExit('No project checks selected')
+          for command in commands:
+              subprocess.run(command, check=True)
+          PY
