@@ -22,3 +22,15 @@ def mean(values):
         return statistics.mean(validated_values())
     except statistics.StatisticsError as exc:
         raise ValueError("mean requires at least one value") from exc
+
+
+def population_variance(values):
+    """Return the mean squared deviation of finite int/float values.
+
+    Consume the input once, retaining its values to compute deviations from
+    mean. Validation and empty-input errors follow mean's rules. This uses
+    O(n) memory and divides by the population size, rather than n - 1.
+    """
+    samples = [value for value in values]
+    average = mean(samples)
+    return statistics.pvariance(samples, mu=average)
